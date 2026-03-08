@@ -1,2 +1,3 @@
+// Author: 7ANG0N1N3 — https://github.com/7ang0n1n3/lg-signage
 rootProject.name = "SignageApp"
 include ':app'

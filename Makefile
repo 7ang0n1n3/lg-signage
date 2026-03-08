@@ -1,3 +1,4 @@
+# Author: 7ANG0N1N3 — https://github.com/7ang0n1n3/lg-signage
 IMAGE       := mingc/android-build-box
 PROJECT     := $(shell pwd)
 APK_DEBUG   := app/build/outputs/apk/debug/app-debug.apk
