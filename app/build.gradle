@@ -19,12 +19,22 @@ android {
         checkReleaseBuilds false
     }
 
+    signingConfigs {
+        release {
+            storeFile file('signage.keystore')
+            storePassword 'signage123'
+            keyAlias 'signage'
+            keyPassword 'signage123'
+        }
+    }
+
     buildTypes {
         debug {
             minifyEnabled false
         }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
         }
     }
 

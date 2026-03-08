@@ -2,7 +2,7 @@
 IMAGE       := mingc/android-build-box
 PROJECT     := $(shell pwd)
 APK_DEBUG   := app/build/outputs/apk/debug/app-debug.apk
-APK_RELEASE := app/build/outputs/apk/release/app-release-unsigned.apk
+APK_RELEASE := app/build/outputs/apk/release/app-release.apk
 
 .PHONY: build release install install-release clean
 

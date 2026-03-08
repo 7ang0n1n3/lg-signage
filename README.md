@@ -4,16 +4,16 @@ Android digital signage app designed for the **LG Display LD230EKS-FPN1** — a 
 
 ## Pre-built Release APK
 
-A compiled, unsigned release APK is included in this repository at:
+A compiled, signed release APK is included in this repository at:
 
 ```
-app/build/outputs/apk/release/app-release-unsigned.apk
+app/build/outputs/apk/release/app-release.apk
 ```
 
 Install directly to a connected device:
 
 ```sh
-adb install -r app/build/outputs/apk/release/app-release-unsigned.apk
+adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
 Or use `make install-release` to build from source and install in one step.
