@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  background: #06090d;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #1c2736;
+  padding: 0.5vw 1.5vw;
+  gap: 0.6vw;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:last-child { border-bottom: none; }
+
+.card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--c), transparent);
+  opacity: 0.5;
+}
+
+.card:nth-child(1) { --c: #f87171; }
+.card:nth-child(2) { --c: #60a5fa; }
+.card:nth-child(3) { --c: #34d399; }
+.card:nth-child(4) { --c: #fbbf24; }
+.card:nth-child(5) { --c: #a78bfa; }
+.card:nth-child(6) { --c: #22d3ee; }
+.card:nth-child(7) { --c: #fbbf24; }
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 2vw;
+}
+
+.icon {
+  width: 7vw;
+  height: 7vw;
+  flex-shrink: 0;
+}
+
+.city {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 7vw;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--c);
+  line-height: 1;
+}
+
+.time {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15vw;
+  font-weight: 700;
+  color: #f0f4f8;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.time .sec {
+  font-size: 10vw;
+  color: var(--c);
+}
+
+.date {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 5.5vw;
+  font-weight: 400;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<script>
+var NS = 'http://www.w3.org/2000/svg';
+
+function svgEl(tag, attrs) {
+  var el = document.createElementNS(NS, tag);
+  Object.keys(attrs).forEach(function(k) { el.setAttribute(k, attrs[k]); });
+  return el;
+}
+
+function makeSun() {
+  var svg = svgEl('svg', { viewBox: '0 0 44 44', fill: 'none' });
+  svg.appendChild(svgEl('circle', { cx: '22', cy: '22', r: '8', fill: '#fbbf24' }));
+  var rays = [
+    [22,4,22,10],[22,34,22,40],[4,22,10,22],[34,22,40,22],
+    [9,9,13,13],[31,31,35,35],[35,9,31,13],[13,31,9,35]
+  ];
+  rays.forEach(function(r) {
+    svg.appendChild(svgEl('line', {
+      x1: r[0], y1: r[1], x2: r[2], y2: r[3],
+      stroke: '#fbbf24', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+  });
+  return svg;
+}
+
+function makeMoon() {
+  var svg = svgEl('svg', { viewBox: '0 0 44 44', fill: 'none' });
+  svg.appendChild(svgEl('path', {
+    d: 'M28 7 C16 10 11 20 14 30 C17 39 27 43 36 39 C25 40 14 31 17 21 C19 11 28 7 28 7Z',
+    fill: '#94a3b8'
+  }));
+  svg.appendChild(svgEl('circle', { cx: '32', cy: '12', r: '2.5', fill: '#c8d6e5', opacity: '0.6' }));
+  svg.appendChild(svgEl('circle', { cx: '28', cy: '7',  r: '1.5', fill: '#c8d6e5', opacity: '0.4' }));
+  return svg;
+}
+
+function isDay(tz) {
+  var h = parseInt(new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, hour: '2-digit', hour12: false
+  }).format(new Date()), 10);
+  return h >= 6 && h < 20;
+}
+
+function makeFmt(tz, opts) {
+  return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: tz }, opts));
+}
+
+var ZONES = [
+  { city: 'TOKYO', tz: 'Asia/Tokyo' },
+  { city: 'UTC',   tz: 'UTC' },
+  { city: 'EST',   tz: 'America/New_York' },
+  { city: 'MST',   tz: 'America/Denver' },
+  { city: 'PST',   tz: 'America/Los_Angeles' },
+  { city: 'KL',    tz: 'Asia/Kuala_Lumpur' },
+  { city: 'IST',   tz: 'Asia/Kolkata' }
+];
+
+var cards = ZONES.map(function(z) {
+  var fmtHM   = makeFmt(z.tz, { hour: '2-digit', minute: '2-digit', hour12: false });
+  var fmtSec  = makeFmt(z.tz, { second: '2-digit' });
+  var fmtDate = makeFmt(z.tz, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+
+  var card = document.createElement('div');
+  card.className = 'card';
+
+  var header = document.createElement('div');
+  header.className = 'header';
+
+  var iconWrap = document.createElement('div');
+  iconWrap.className = 'icon';
+
+  var city = document.createElement('div');
+  city.className = 'city';
+  city.textContent = z.city;
+
+  header.appendChild(iconWrap);
+  header.appendChild(city);
+
+  var time = document.createElement('div');
+  time.className = 'time';
+  var hmSpan  = document.createElement('span');
+  var colSpan = document.createElement('span');
+  colSpan.className = 'sec';
+  var secSpan = document.createElement('span');
+  secSpan.className = 'sec';
+  time.appendChild(hmSpan);
+  time.appendChild(colSpan);
+  time.appendChild(secSpan);
+
+  var date = document.createElement('div');
+  date.className = 'date';
+
+  card.appendChild(header);
+  card.appendChild(time);
+  card.appendChild(date);
+  document.body.appendChild(card);
+
+  return {
+    iconWrap: iconWrap,
+    hm: hmSpan, col: colSpan, sec: secSpan, date: date,
+    fmtHM: fmtHM, fmtSec: fmtSec, fmtDate: fmtDate,
+    tz: z.tz, lastDay: null
+  };
+});
+
+var tick = 0;
+
+function update() {
+  tick++;
+  var now   = new Date();
+  var colon = (tick % 2 === 0) ? ':' : '\u2009';
+
+  cards.forEach(function(c) {
+    var day = isDay(c.tz);
+    if (day !== c.lastDay) {
+      while (c.iconWrap.firstChild) c.iconWrap.removeChild(c.iconWrap.firstChild);
+      c.iconWrap.appendChild(day ? makeSun() : makeMoon());
+      c.lastDay = day;
+    }
+    c.hm.textContent   = c.fmtHM.format(now);
+    c.col.textContent  = colon;
+    var s = now.getSeconds(); c.sec.textContent = (s < 10 ? '0' : '') + s;
+    c.date.textContent = c.fmtDate.format(now);
+  });
+}
+
+update();
+setInterval(update, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { margin:0;padding:0;box-sizing:border-box; }
+html,body { width:100vw;height:100vh;overflow:hidden;background:#030409; }
+canvas { display:block;width:100%;height:100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(function(){
+var cv = document.getElementById('c');
+var cx = cv.getContext('2d');
+var W, H;
+
+function resize() {
+  W = cv.width  = cv.offsetWidth;
+  H = cv.height = cv.offsetHeight;
+  initClouds();
+}
+
+// ── Stars ─────────────────────────────────────────────────
+var stars = [];
+for (var i = 0; i < 90; i++) {
+  stars.push({
+    x: Math.random(),
+    y: Math.random() * 0.45,
+    r: 0.4 + Math.random() * 0.9,
+    a: 0.15 + Math.random() * 0.55
+  });
+}
+
+// ── Clouds ────────────────────────────────────────────────
+var clouds = [];
+var cloudDefs = [
+  { n:7, yLo:0.00, yHi:0.35, rxLo:55, rxHi:140, ryLo:22, ryHi:52, aLo:0.4, aHi:0.65, spd:0.07 },
+  { n:6, yLo:0.15, yHi:0.55, rxLo:75, rxHi:180, ryLo:28, ryHi:62, aLo:0.3, aHi:0.50, spd:0.04 },
+  { n:5, yLo:0.35, yHi:0.75, rxLo:90, rxHi:210, ryLo:32, ryHi:68, aLo:0.18,aHi:0.35, spd:0.02 }
+];
+
+function initClouds() {
+  clouds = [];
+  cloudDefs.forEach(function(d) {
+    for (var i = 0; i < d.n; i++) {
+      clouds.push({
+        x:  Math.random() * 1.4 - 0.2,
+        y:  d.yLo + Math.random() * (d.yHi - d.yLo),
+        rx: d.rxLo + Math.random() * (d.rxHi - d.rxLo),
+        ry: d.ryLo + Math.random() * (d.ryHi - d.ryLo),
+        a:  d.aLo  + Math.random() * (d.aHi  - d.aLo),
+        vx: (Math.random() < 0.5 ? 1 : -1) * d.spd * (0.6 + Math.random() * 0.8),
+        lit: 0
+      });
+    }
+  });
+}
+
+// ── Lightning bolt generation ──────────────────────────────
+function genSegs(x1, y1, x2, y2, depth, isBranch, out) {
+  if (depth === 0 || Math.abs(y2 - y1) < 4) {
+    out.push({ x1:x1, y1:y1, x2:x2, y2:y2, br:isBranch });
+    return;
+  }
+  var spread = Math.abs(y2 - y1) * 0.42;
+  var mx = (x1 + x2) * 0.5 + (Math.random() - 0.5) * spread;
+  var my = (y1 + y2) * 0.5;
+  genSegs(x1, y1, mx, my, depth - 1, isBranch, out);
+  genSegs(mx, my, x2, y2, depth - 1, isBranch, out);
+  if (!isBranch && depth >= 3 && Math.random() < 0.32) {
+    var bx2 = mx + (Math.random() - 0.5) * W * 0.28;
+    var by2 = my + (y2 - my) * (0.35 + Math.random() * 0.5);
+    genSegs(mx, my, bx2, by2, depth - 2, true, out);
+  }
+}
+
+// ── Active bolts & flash ───────────────────────────────────
+var bolts  = [];
+var flash  = 0;
+var nextIn = 1200 + Math.random() * 2000;
+
+function spawnBolt() {
+  var x     = W * (0.1 + Math.random() * 0.8);
+  var xDrift = (Math.random() - 0.5) * W * 0.2;
+  var yEnd  = H * (0.55 + Math.random() * 0.4);
+  var thick = 0.6 + Math.random() * 2.0;
+  var depth = 7;
+  var segs  = [];
+  genSegs(x, 0, x + xDrift, yEnd, depth, false, segs);
+  bolts.push({ segs:segs, age:0, maxAge:80 + Math.random() * 180, x:x, thick:thick });
+  flash = 0.20 + Math.random() * 0.25;
+  clouds.forEach(function(cl) {
+    if (Math.abs(cl.x * W - x) < W * 0.6) cl.lit = 0.55 + Math.random() * 0.45;
+  });
+}
+
+// ── Draw passes ───────────────────────────────────────────
+function drawStars() {
+  cx.save();
+  stars.forEach(function(s) {
+    var a = s.a * Math.max(0, 1 - flash * 2.5);
+    if (a <= 0.01) return;
+    cx.beginPath();
+    cx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+    cx.fillStyle = 'rgba(210,220,240,' + a + ')';
+    cx.fill();
+  });
+  cx.restore();
+}
+
+function drawCloud(cl) {
+  var px = cl.x * W;
+  var py = cl.y * H;
+  var lit = Math.min(1, cl.lit + flash * 0.45);
+  cx.save();
+  cx.translate(px, py);
+  cx.scale(1, cl.ry / cl.rx);
+  var gr = cx.createRadialGradient(0, 0, 0, 0, 0, cl.rx);
+  var rv = Math.round(18 + lit * 58);
+  var gv = Math.round(22 + lit * 68);
+  var bv = Math.round(40 + lit * 85);
+  var a0 = Math.min(0.98, cl.a + lit * 0.22);
+  gr.addColorStop(0,   'rgba('+rv+','+gv+','+bv+','+a0+')');
+  gr.addColorStop(0.55,'rgba('+rv+','+gv+','+bv+','+(a0*0.55)+')');
+  gr.addColorStop(1,   'rgba('+rv+','+gv+','+bv+',0)');
+  cx.beginPath();
+  cx.arc(0, 0, cl.rx, 0, Math.PI * 2);
+  cx.fillStyle = gr;
+  cx.fill();
+  cx.restore();
+}
+
+function drawBolt(b) {
+  var t  = b.age / b.maxAge;
+  var fa = Math.pow(1 - t, 1.8);
+  var tk = b.thick;
+  var layers = [
+    { w:14*tk, r:50,  g:120, b:255, a: fa*0.05 },
+    { w:8*tk,  r:90,  g:160, b:255, a: fa*0.12 },
+    { w:4*tk,  r:150, g:205, b:255, a: fa*0.35 },
+    { w:2*tk,  r:210, g:235, b:255, a: fa*0.72 },
+    { w:1*tk,  r:255, g:255, b:255, a: fa      }
+  ];
+  layers.forEach(function(l) {
+    cx.beginPath();
+    cx.lineWidth  = l.w;
+    cx.lineCap    = 'round';
+    cx.lineJoin   = 'round';
+    cx.strokeStyle = 'rgba('+l.r+','+l.g+','+l.b+','+l.a+')';
+    b.segs.forEach(function(s) {
+      if (s.br && l.w > 4) return;
+      cx.moveTo(s.x1, s.y1);
+      cx.lineTo(s.x2, s.y2);
+    });
+    cx.stroke();
+  });
+}
+
+// ── Main loop ─────────────────────────────────────────────
+var prev = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  var dt = Math.min(ts - prev, 50);
+  prev = ts;
+
+  // Sky gradient
+  var bg = cx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0,   '#030409');
+  bg.addColorStop(0.45,'#060916');
+  bg.addColorStop(1,   '#0b1025');
+  cx.fillStyle = bg;
+  cx.fillRect(0, 0, W, H);
+
+  drawStars();
+
+  clouds.forEach(function(cl) {
+    cl.x += cl.vx / W;
+    if (cl.x > 1.3)  cl.x = -0.3;
+    if (cl.x < -0.3) cl.x = 1.3;
+    if (cl.lit > 0)   cl.lit = Math.max(0, cl.lit - dt * 0.0028);
+    drawCloud(cl);
+  });
+
+  bolts = bolts.filter(function(b) {
+    b.age += dt;
+    if (b.age < b.maxAge) { drawBolt(b); return true; }
+    return false;
+  });
+
+  if (flash > 0) {
+    cx.fillStyle = 'rgba(170,210,255,' + (flash * 0.22) + ')';
+    cx.fillRect(0, 0, W, H);
+    flash = Math.max(0, flash - dt * 0.009);
+  }
+
+  nextIn -= dt;
+  if (nextIn <= 0) {
+    spawnBolt();
+    if (Math.random() < 0.38) {
+      (function() {
+        var delay = 65 + Math.random() * 95;
+        setTimeout(function() { spawnBolt(); }, delay);
+      })();
+    }
+    nextIn = 1500 + Math.random() * 4000;
+  }
+}
+
+resize();
+window.addEventListener('resize', resize);
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

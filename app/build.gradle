@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace "com.signage.app"
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.signage.app"
+        minSdk 25
+        targetSdk 28
+        versionCode 1
+        versionName "1.0"
+    }
+
+    lint {
+        checkReleaseBuilds false
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+}

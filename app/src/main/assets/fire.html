@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { margin:0;padding:0;box-sizing:border-box; }
+html,body { width:100vw;height:100vh;overflow:hidden;background:#030409; }
+canvas { display:block;width:100%;height:100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(function(){
+var cv = document.getElementById('c');
+var cx = cv.getContext('2d');
+var W, H;
+
+// ── Fire grid ─────────────────────────────────────────────
+var FW = 40, FH = 110;
+var pixels = new Array(FW * FH);
+
+// Palette: 37 heat levels, [r,g,b,a]
+var PAL = (function() {
+  var stops = [
+    [0,0,0,0],     [18,0,0,40],   [40,0,0,90],   [70,0,0,150],
+    [100,0,0,200], [130,5,0,230], [160,20,0,248], [190,40,0,255],
+    [215,65,0,255],[235,90,0,255],[250,115,0,255],[255,140,0,255],
+    [255,165,0,255],[255,188,10,255],[255,208,30,255],[255,225,55,255],
+    [255,238,85,255],[255,248,120,255],[255,253,160,255],[255,255,200,255],
+    [255,255,230,255],[255,255,255,255]
+  ];
+  var out = [];
+  for (var i = 0; i <= 36; i++) {
+    var t  = i / 36 * (stops.length - 1);
+    var si = Math.floor(t);
+    var sf = t - si;
+    var a  = stops[si];
+    var b  = stops[Math.min(si+1, stops.length-1)];
+    out.push([
+      Math.round(a[0]+(b[0]-a[0])*sf),
+      Math.round(a[1]+(b[1]-a[1])*sf),
+      Math.round(a[2]+(b[2]-a[2])*sf),
+      Math.round(a[3]+(b[3]-a[3])*sf)
+    ]);
+  }
+  return out;
+})();
+
+var fireOff  = document.createElement('canvas');
+fireOff.width = FW; fireOff.height = FH;
+var fireCx   = fireOff.getContext('2d');
+var imgData  = fireCx.createImageData(FW, FH);
+
+function initFire() {
+  for (var i = 0; i < FW * FH; i++) pixels[i] = 0;
+  for (var x = 0; x < FW; x++) {
+    pixels[(FH-1)*FW + x] = 36;
+    pixels[(FH-2)*FW + x] = 36;
+  }
+}
+
+var windX = 0, windTarget = 0;
+
+function stepFire() {
+  windX += (windTarget - windX) * 0.015;
+  if (Math.random() < 0.018) windTarget = (Math.random() - 0.5) * 1.6;
+
+  for (var y = 0; y < FH - 1; y++) {
+    for (var x = 0; x < FW; x++) {
+      var rx    = Math.random();
+      var spread = Math.floor(rx * 3 + windX) - 1;
+      var cool  = rx < 0.5 ? 0 : (rx < 0.82 ? 1 : 2);
+      var sx    = ((x + spread) + FW) % FW;
+      var val   = pixels[(y+1)*FW + sx] - cool;
+      pixels[y*FW + x] = val < 0 ? 0 : val;
+    }
+  }
+}
+
+function renderFire() {
+  var d = imgData.data;
+  for (var i = 0; i < FW * FH; i++) {
+    var p   = PAL[pixels[i]];
+    var di  = i * 4;
+    d[di]   = p[0];
+    d[di+1] = p[1];
+    d[di+2] = p[2];
+    d[di+3] = p[3];
+  }
+  fireCx.putImageData(imgData, 0, 0);
+}
+
+// ── Stars ─────────────────────────────────────────────────
+var stars = [];
+for (var i = 0; i < 130; i++) {
+  stars.push({
+    x: Math.random(),
+    y: Math.random() * 0.65,
+    r: 0.3 + Math.random() * 1.0,
+    a: 0.2 + Math.random() * 0.7,
+    tw: Math.random() * 6.28
+  });
+}
+
+// ── Clouds ────────────────────────────────────────────────
+var cloudDefs = [
+  { n:8, yLo:0.0, yHi:0.40, rxLo:50, rxHi:130, ryLo:20, ryHi:50, aLo:0.30, aHi:0.58, spd:0.05 },
+  { n:6, yLo:0.1, yHi:0.60, rxLo:70, rxHi:170, ryLo:25, ryHi:60, aLo:0.18, aHi:0.38, spd:0.03 }
+];
+var clouds = [];
+
+function initClouds() {
+  clouds = [];
+  cloudDefs.forEach(function(d) {
+    for (var i = 0; i < d.n; i++) {
+      clouds.push({
+        x:  Math.random() * 1.4 - 0.2,
+        y:  d.yLo + Math.random() * (d.yHi - d.yLo),
+        rx: d.rxLo + Math.random() * (d.rxHi - d.rxLo),
+        ry: d.ryLo + Math.random() * (d.ryHi - d.ryLo),
+        a:  d.aLo  + Math.random() * (d.aHi  - d.aLo),
+        vx: (Math.random() < 0.5 ? 1 : -1) * d.spd * (0.5 + Math.random())
+      });
+    }
+  });
+}
+
+// ── Resize ────────────────────────────────────────────────
+function resize() {
+  W = cv.width  = cv.offsetWidth;
+  H = cv.height = cv.offsetHeight;
+  initClouds();
+  initFire();
+}
+
+// ── Main loop ─────────────────────────────────────────────
+var prev = 0, fireAccum = 0;
+
+function loop(ts) {
+  requestAnimationFrame(loop);
+  var dt = Math.min(ts - prev, 50);
+  prev = ts;
+
+  // Sky
+  var bg = cx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0,    '#030409');
+  bg.addColorStop(0.45, '#070c18');
+  bg.addColorStop(1,    '#0e1530');
+  cx.fillStyle = bg;
+  cx.fillRect(0, 0, W, H);
+
+  // Stars (twinkle)
+  stars.forEach(function(s) {
+    s.tw += dt * 0.0018;
+    var a = s.a * (0.55 + 0.45 * Math.sin(s.tw));
+    cx.beginPath();
+    cx.arc(s.x * W, s.y * H, s.r, 0, 6.2832);
+    cx.fillStyle = 'rgba(215,228,255,' + a + ')';
+    cx.fill();
+  });
+
+  // Clouds
+  clouds.forEach(function(cl) {
+    cl.x += cl.vx / W;
+    if (cl.x > 1.3)  cl.x = -0.3;
+    if (cl.x < -0.3) cl.x = 1.3;
+    cx.save();
+    cx.translate(cl.x * W, cl.y * H);
+    cx.scale(1, cl.ry / cl.rx);
+    var gr = cx.createRadialGradient(0,0,0, 0,0,cl.rx);
+    gr.addColorStop(0,   'rgba(14,19,36,'  + cl.a + ')');
+    gr.addColorStop(0.6, 'rgba(11,15,28,'  + (cl.a*0.5) + ')');
+    gr.addColorStop(1,   'rgba(8,11,22,0)');
+    cx.beginPath();
+    cx.arc(0, 0, cl.rx, 0, 6.2832);
+    cx.fillStyle = gr;
+    cx.fill();
+    cx.restore();
+  });
+
+  // Fire update
+  fireAccum += dt;
+  if (fireAccum >= 28) {
+    fireAccum = 0;
+    stepFire();
+  }
+  renderFire();
+  cx.drawImage(fireOff, 0, 0, W, H);
+}
+
+resize();
+window.addEventListener('resize', resize);
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
